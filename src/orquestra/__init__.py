@@ -4,7 +4,7 @@ A modern AI agent framework with multi-provider support, built-in tools,
 and FastAPI-style declarative API.
 """
 
-__version__ = "0.2.2"
+__version__ = "0.2.4"
 
 # Core components
 from .core import (

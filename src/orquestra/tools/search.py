@@ -1,8 +1,10 @@
-"""Web search tool using DuckDuckGo."""
+"""Web search tool using DuckDuckGo (ddgs package)."""
 
 from __future__ import annotations
 
 from typing import Any
+
+from orquestra.tools.exceptions import MissingDependencyError
 
 
 def web_search(query: str, max_results: int = 5) -> str:
@@ -14,14 +16,17 @@ def web_search(query: str, max_results: int = 5) -> str:
 
     Returns:
         Formatted search results as a string
+
+    Raises:
+        MissingDependencyError: If ddgs is not installed
     """
     try:
-        from duckduckgo_search import DDGS
-    except ImportError:
-        return (
-            "DuckDuckGo search not available. "
-            "Install with: uv add duckduckgo-search or pip install duckduckgo-search"
-        )
+        from ddgs import DDGS
+    except ImportError as e:
+        raise MissingDependencyError(
+            "ddgs",
+            "uv add orquestra --optional search"
+        ) from e
 
     try:
         with DDGS() as ddgs:
@@ -58,14 +63,17 @@ def news_search(query: str, max_results: int = 5) -> str:
 
     Returns:
         Formatted news results as a string
+
+    Raises:
+        MissingDependencyError: If ddgs is not installed
     """
     try:
-        from duckduckgo_search import DDGS
-    except ImportError:
-        return (
-            "DuckDuckGo search not available. "
-            "Install with: uv add duckduckgo-search or pip install duckduckgo-search"
-        )
+        from ddgs import DDGS
+    except ImportError as e:
+        raise MissingDependencyError(
+            "ddgs",
+            "uv add orquestra --optional search"
+        ) from e
 
     try:
         with DDGS() as ddgs:

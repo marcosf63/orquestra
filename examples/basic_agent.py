@@ -3,6 +3,7 @@
 from dotenv import load_dotenv
 
 from orquestra import ReactAgent, web_search
+from orquestra.tools import MissingDependencyError
 
 # Load environment variables from .env file
 load_dotenv()
@@ -14,9 +15,6 @@ def main():
     # OPENAI_API_KEY=your-key-here
 
     print("🎼 Orquestra Agent Demo\n")
-    print("NOTE: This example requires the 'search' optional dependency:")
-    print("  uv add orquestra --optional search")
-    print("  or: pip install duckduckgo-search\n")
 
     # Create agent
     agent = ReactAgent(
@@ -38,12 +36,15 @@ def main():
 
         print("\n📝 Answer:")
         print(answer)
+    except MissingDependencyError as e:
+        print(f"\n❌ {e}\n")
+        print("For a simpler example without dependencies, try:")
+        print("  python examples/simple_demo.py")
     except Exception as e:
         print(f"\n❌ Error: {e}")
         print("\nTroubleshooting:")
         print("1. Make sure you have set OPENAI_API_KEY in your .env file")
-        print("2. Install search dependency: uv add orquestra --optional search")
-        print("3. Check your internet connection")
+        print("2. Check your internet connection")
         print("\nFor a simpler example without web search, try:")
         print("  python examples/simple_demo.py")
 

@@ -55,7 +55,8 @@ uv run python examples/basic_agent.py
 - Creating a ReactAgent
 - Adding built-in web search tool
 - Real-world web queries
-- **Requires:** duckduckgo-search dependency
+- Exception handling for missing dependencies
+- **Requires:** ddgs dependency
 
 ### 3. Custom Tools (`custom_tools.py`)
 
