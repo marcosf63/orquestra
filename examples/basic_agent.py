@@ -13,6 +13,11 @@ def main():
     # Set your API key in .env file:
     # OPENAI_API_KEY=your-key-here
 
+    print("🎼 Orquestra Agent Demo\n")
+    print("NOTE: This example requires the 'search' optional dependency:")
+    print("  uv add orquestra --optional search")
+    print("  or: pip install duckduckgo-search\n")
+
     # Create agent
     agent = ReactAgent(
         name="WebResearcher",
@@ -24,15 +29,23 @@ def main():
     agent.add_tool(web_search)
 
     # Ask a question
-    print("🎼 Orquestra Agent Demo\n")
     print("Question: What are the latest developments in AI agents?\n")
 
-    answer = agent.run(
-        "What are the latest developments in AI agents? Provide a summary."
-    )
+    try:
+        answer = agent.run(
+            "What are the latest developments in AI agents? Provide a summary."
+        )
 
-    print("\n📝 Answer:")
-    print(answer)
+        print("\n📝 Answer:")
+        print(answer)
+    except Exception as e:
+        print(f"\n❌ Error: {e}")
+        print("\nTroubleshooting:")
+        print("1. Make sure you have set OPENAI_API_KEY in your .env file")
+        print("2. Install search dependency: uv add orquestra --optional search")
+        print("3. Check your internet connection")
+        print("\nFor a simpler example without web search, try:")
+        print("  python examples/simple_demo.py")
 
 
 if __name__ == "__main__":

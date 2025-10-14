@@ -26,20 +26,38 @@ All examples automatically load environment variables from `.env` file using `py
 
 ## Available Examples
 
-### 1. Basic Agent (`basic_agent.py`)
+### 1. Simple Demo (`simple_demo.py`) - **START HERE!**
 
-Demonstrates creating a simple agent with web search capability.
+Simple demonstration with basic math tools (no external dependencies required).
 
 ```bash
-python examples/basic_agent.py
+uv run python examples/simple_demo.py
 ```
 
 **Features:**
 - Creating a ReactAgent
-- Adding built-in tools
-- Running queries
+- Adding custom tools with decorators
+- Multiple tool interactions
+- **No external dependencies needed**
 
-### 2. Custom Tools (`custom_tools.py`)
+### 2. Basic Agent (`basic_agent.py`)
+
+Demonstrates creating an agent with web search capability.
+
+```bash
+# Requires search dependency
+uv add orquestra --optional search
+
+uv run python examples/basic_agent.py
+```
+
+**Features:**
+- Creating a ReactAgent
+- Adding built-in web search tool
+- Real-world web queries
+- **Requires:** duckduckgo-search dependency
+
+### 3. Custom Tools (`custom_tools.py`)
 
 Shows how to create custom tools using decorators (FastAPI style).
 
@@ -53,7 +71,7 @@ python examples/custom_tools.py
 - Docstring-based tool descriptions
 - Multiple tools per agent
 
-### 3. SQLite Persistence (`persistence_sqlite.py`)
+### 4. SQLite Persistence (`persistence_sqlite.py`)
 
 Demonstrates persistent chat memory using SQLite.
 
@@ -67,7 +85,7 @@ python examples/persistence_sqlite.py
 - Message persistence across runs
 - Listing available sessions
 
-### 4. PostgreSQL Persistence (`persistence_postgresql.py`)
+### 5. PostgreSQL Persistence (`persistence_postgresql.py`)
 
 Demonstrates persistent chat memory using PostgreSQL.
 
