@@ -1,14 +1,17 @@
 """Basic agent example with web search."""
 
-import os
+from dotenv import load_dotenv
 
 from orquestra import ReactAgent, web_search
+
+# Load environment variables from .env file
+load_dotenv()
 
 
 def main():
     """Run a basic agent with web search capability."""
-    # Set your API key in environment or .env file
-    # export OPENAI_API_KEY="your-key"
+    # Set your API key in .env file:
+    # OPENAI_API_KEY=your-key-here
 
     # Create agent
     agent = ReactAgent(

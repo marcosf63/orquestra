@@ -1,10 +1,18 @@
 """Example showing custom tool creation with decorators."""
 
+from dotenv import load_dotenv
+
 from orquestra import ReactAgent
+
+# Load environment variables from .env file
+load_dotenv()
 
 
 def main():
     """Demonstrate custom tools with FastAPI-style decorators."""
+    # Set your API key in .env file:
+    # OPENAI_API_KEY=your-key-here
+
     # Create agent
     agent = ReactAgent(
         name="MathAssistant",

@@ -11,11 +11,18 @@ Before running the examples, make sure you have:
 uv add orquestra --optional openai --optional search
 ```
 
-2. Set your API keys:
+2. Configure your API keys using a `.env` file:
 ```bash
-export OPENAI_API_KEY="your-key"
-# or use a .env file
+# Copy the example file
+cp ../.env.example .env
+
+# Edit .env and add your API keys
+# OPENAI_API_KEY=sk-your-key-here
+# ANTHROPIC_API_KEY=sk-ant-your-key-here
+# GOOGLE_API_KEY=your-key-here
 ```
+
+All examples automatically load environment variables from `.env` file using `python-dotenv`.
 
 ## Available Examples
 

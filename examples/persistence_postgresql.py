@@ -1,6 +1,13 @@
 """Example demonstrating ChatMemory persistence with PostgreSQL."""
 
+import os
+
+from dotenv import load_dotenv
+
 from orquestra import ChatMemory, PostgreSQLStorage
+
+# Load environment variables from .env file
+load_dotenv()
 
 
 def main():
@@ -8,18 +15,18 @@ def main():
     print("🎼 Orquestra Persistent Memory Demo (PostgreSQL)\n")
 
     # Create PostgreSQL storage
-    # Option 1: Using individual parameters
+    # Option 1: Using individual parameters (from .env)
     storage = PostgreSQLStorage(
-        host="localhost",
-        port=5432,
-        database="orquestra",
-        user="postgres",
-        password="your-password",  # Set your password
+        host=os.getenv("POSTGRES_HOST", "localhost"),
+        port=int(os.getenv("POSTGRES_PORT", "5432")),
+        database=os.getenv("POSTGRES_DB", "orquestra"),
+        user=os.getenv("POSTGRES_USER", "postgres"),
+        password=os.getenv("POSTGRES_PASSWORD", ""),
     )
 
-    # Option 2: Using connection string (alternative)
+    # Option 2: Using connection string from .env (alternative)
     # storage = PostgreSQLStorage(
-    #     connection_string="postgresql://postgres:password@localhost:5432/orquestra"
+    #     connection_string=os.getenv("POSTGRES_CONNECTION_STRING")
     # )
 
     # Create a chat memory with persistence
