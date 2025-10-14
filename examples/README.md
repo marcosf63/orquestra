@@ -46,20 +46,36 @@ python examples/custom_tools.py
 - Docstring-based tool descriptions
 - Multiple tools per agent
 
-### 3. Memory System (`memory_example.py`)
+### 3. SQLite Persistence (`persistence_sqlite.py`)
 
-Demonstrates the hybrid memory system with chat and knowledge separation.
+Demonstrates persistent chat memory using SQLite.
 
 ```bash
-python examples/memory_example.py
+python examples/persistence_sqlite.py
 ```
 
 **Features:**
-- HybridMemory creation
-- Adding items to knowledge base
-- Chat history management
-- Knowledge search
-- Context retrieval with knowledge injection
+- ChatMemory with SQLite persistence
+- Session management
+- Message persistence across runs
+- Listing available sessions
+
+### 4. PostgreSQL Persistence (`persistence_postgresql.py`)
+
+Demonstrates persistent chat memory using PostgreSQL.
+
+```bash
+# Requires PostgreSQL optional dependency
+uv add orquestra --optional postgresql
+
+python examples/persistence_postgresql.py
+```
+
+**Features:**
+- ChatMemory with PostgreSQL persistence
+- Message metadata support
+- Production-ready database backend
+- Connection string or parameter-based configuration
 
 ## Next Steps
 

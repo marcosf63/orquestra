@@ -2,16 +2,18 @@
 
 from .base import (
     ChatMemory,
-    HybridMemory,
     KnowledgeMemory,
     Memory,
     MemoryEntry,
 )
+from .storage import PostgreSQLStorage, SQLiteStorage, StorageBackend
 
 __all__ = [
     "Memory",
     "MemoryEntry",
     "ChatMemory",
     "KnowledgeMemory",
-    "HybridMemory",
+    "StorageBackend",
+    "SQLiteStorage",
+    "PostgreSQLStorage",
 ]

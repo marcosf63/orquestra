@@ -4,7 +4,7 @@ A modern AI agent framework with multi-provider support, built-in tools,
 and FastAPI-style declarative API.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.2.0"
 
 # Core components
 from .core import (
@@ -23,7 +23,15 @@ from .core import (
 from .agents import ReactAgent
 
 # Memory systems
-from .memory import ChatMemory, HybridMemory, KnowledgeMemory, Memory, MemoryEntry
+from .memory import (
+    ChatMemory,
+    KnowledgeMemory,
+    Memory,
+    MemoryEntry,
+    PostgreSQLStorage,
+    SQLiteStorage,
+    StorageBackend,
+)
 
 # Built-in tools
 from .tools import (
@@ -63,7 +71,9 @@ __all__ = [
     "MemoryEntry",
     "ChatMemory",
     "KnowledgeMemory",
-    "HybridMemory",
+    "StorageBackend",
+    "SQLiteStorage",
+    "PostgreSQLStorage",
     # Tools - Classes
     "SearchTool",
     "FileSystemTool",

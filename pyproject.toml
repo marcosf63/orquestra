@@ -1,6 +1,6 @@
 [project]
 name = "orquestra"
-version = "0.1.0"
+version = "0.2.0"
 description = "Orchestrate agents and tools in perfect harmony - A modern AI agent framework with multi-provider support"
 readme = "README.md"
 authors = [
@@ -51,6 +51,9 @@ dev = [
 ]
 search = [
     "duckduckgo-search>=8.1.1",
+]
+postgresql = [
+    "psycopg[binary]>=3.0.0",
 ]
 
 [project.urls]

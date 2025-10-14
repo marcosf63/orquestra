@@ -2,12 +2,14 @@
 
 from __future__ import annotations
 
+import uuid
 from abc import ABC, abstractmethod
 from typing import Any
 
 from pydantic import BaseModel
 
 from ..core.provider import Message
+from .storage import StorageBackend
 
 
 class MemoryEntry(BaseModel):
@@ -50,20 +52,33 @@ class Memory(ABC):
 
 
 class ChatMemory(Memory):
-    """Simple chat history memory.
+    """Chat history memory with optional persistence.
 
     Stores conversation messages in chronological order with optional
-    window size limiting.
+    window size limiting and database persistence support.
     """
 
-    def __init__(self, max_messages: int | None = None) -> None:
+    def __init__(
+        self,
+        max_messages: int | None = None,
+        storage: StorageBackend | None = None,
+        session_id: str | None = None,
+    ) -> None:
         """Initialize chat memory.
 
         Args:
             max_messages: Maximum number of messages to keep (None for unlimited)
+            storage: Optional storage backend for persistence
+            session_id: Session identifier for storage (auto-generated if not provided)
         """
         self.max_messages = max_messages
+        self.storage = storage
+        self.session_id = session_id or str(uuid.uuid4())
         self._messages: list[Message] = []
+
+        # Load messages from storage if available
+        if self.storage:
+            self._messages = self.storage.load_messages(self.session_id, limit=max_messages)
 
     def add(self, entry: MemoryEntry | str | Message) -> None:
         """Add a message to chat history.
@@ -86,14 +101,20 @@ class ChatMemory(Memory):
             else:
                 self._messages = self._messages[-self.max_messages:]
 
-    def add_message(self, role: str, content: str) -> None:
+    def add_message(self, role: str, content: str, metadata: dict[str, Any] | None = None) -> None:
         """Add a message directly.
 
         Args:
             role: Message role (user, assistant, system)
             content: Message content
+            metadata: Optional metadata for the message
         """
-        self._messages.append(Message(role=role, content=content))
+        message = Message(role=role, content=content)
+        self._messages.append(message)
+
+        # Save to storage if available
+        if self.storage:
+            self.storage.save_message(self.session_id, role, content, metadata)
 
         # Maintain window size
         if self.max_messages and len(self._messages) > self.max_messages:
@@ -139,6 +160,37 @@ class ChatMemory(Memory):
     def clear(self) -> None:
         """Clear all chat history."""
         self._messages.clear()
+
+        # Clear from storage if available
+        if self.storage:
+            self.storage.delete_messages(self.session_id)
+
+    def load_from_storage(self, limit: int | None = None) -> None:
+        """Reload messages from storage.
+
+        Args:
+            limit: Maximum number of messages to load
+        """
+        if not self.storage:
+            raise ValueError("No storage backend configured")
+
+        self._messages = self.storage.load_messages(
+            self.session_id, limit=limit or self.max_messages
+        )
+
+    def list_sessions(self) -> list[str]:
+        """List all available session IDs from storage.
+
+        Returns:
+            List of session IDs
+
+        Raises:
+            ValueError: If no storage backend configured
+        """
+        if not self.storage:
+            raise ValueError("No storage backend configured")
+
+        return self.storage.list_sessions()
 
     def __len__(self) -> int:
         """Get number of messages in history."""
@@ -204,102 +256,3 @@ class KnowledgeMemory(Memory):
         return len(self._entries)
 
 
-class HybridMemory:
-    """Combines chat and knowledge memory.
-
-    Separates conversational context (chat) from long-term knowledge
-    for better performance and retrieval.
-    """
-
-    def __init__(
-        self,
-        max_chat_messages: int | None = None,
-    ) -> None:
-        """Initialize hybrid memory.
-
-        Args:
-            max_chat_messages: Maximum chat history messages
-        """
-        self.chat = ChatMemory(max_messages=max_chat_messages)
-        self.knowledge = KnowledgeMemory()
-
-    def add_message(self, role: str, content: str) -> None:
-        """Add to chat memory.
-
-        Args:
-            role: Message role
-            content: Message content
-        """
-        self.chat.add_message(role, content)
-
-    def add_knowledge(self, content: str, metadata: dict[str, Any] | None = None) -> None:
-        """Add to knowledge memory.
-
-        Args:
-            content: Knowledge content
-            metadata: Optional metadata
-        """
-        entry = MemoryEntry(content=content, metadata=metadata or {})
-        self.knowledge.add(entry)
-
-    def search_knowledge(self, query: str, limit: int = 5) -> list[MemoryEntry]:
-        """Search knowledge base.
-
-        Args:
-            query: Search query
-            limit: Maximum results
-
-        Returns:
-            List of relevant knowledge entries
-        """
-        return self.knowledge.search(query, limit)
-
-    def get_context(
-        self, include_knowledge: bool = False, knowledge_query: str | None = None
-    ) -> list[Message]:
-        """Get conversation context.
-
-        Args:
-            include_knowledge: Whether to include relevant knowledge
-            knowledge_query: Query for knowledge search (uses last message if None)
-
-        Returns:
-            List of messages for context
-        """
-        messages = self.chat.get_messages()
-
-        if include_knowledge:
-            query = knowledge_query
-            if query is None and messages:
-                # Use last user message as query
-                for msg in reversed(messages):
-                    if msg.role == "user":
-                        query = msg.content
-                        break
-
-            if query:
-                knowledge_entries = self.search_knowledge(query)
-                if knowledge_entries:
-                    # Insert knowledge as system message
-                    knowledge_content = "Relevant knowledge:\n" + "\n".join(
-                        f"- {entry.content}" for entry in knowledge_entries
-                    )
-                    messages.insert(
-                        0 if not messages or messages[0].role != "system" else 1,
-                        Message(role="system", content=knowledge_content),
-                    )
-
-        return messages
-
-    def clear_chat(self) -> None:
-        """Clear chat history only."""
-        self.chat.clear()
-
-    def clear_knowledge(self) -> None:
-        """Clear knowledge base only."""
-        self.knowledge.clear()
-
-    def clear_all(self) -> None:
-        """Clear both chat and knowledge."""
-        self.chat.clear()
-        self.knowledge.clear()
