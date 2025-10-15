@@ -12,6 +12,8 @@ A modern AI agent framework with multi-provider support, built-in tools, and a F
 - **Multi-Provider Support** - OpenAI, Anthropic Claude, Google Gemini, and Ollama
 - **Built-in Tools** - Search, filesystem, computation, and more
 - **Memory Systems** - Chat memory with SQLite/PostgreSQL persistence
+- **Date-Aware Agents** - Automatic current date/time context for accurate responses
+- **Verbose & Debug Modes** - Built-in logging for troubleshooting and monitoring
 - **MCP Integration** - Model Context Protocol support (coming soon)
 - **FastAPI-Style API** - Elegant and intuitive agent creation with decorators
 
@@ -145,6 +147,56 @@ agent = ReactAgent(name="Gemini Agent", provider="gemini-pro")
 
 # Ollama (local)
 agent = ReactAgent(name="Local Agent", provider="llama3")
+```
+
+### Date-Aware Agents
+
+Agents automatically know the current date and time:
+
+```python
+agent = ReactAgent(
+    name="NewsBot",
+    provider="gpt-4o-mini"
+)
+
+# Agent automatically has access to current date/time
+# No need to manually include it in prompts!
+answer = agent.run("What's happening in tech today?")
+
+# Custom date for testing or specific scenarios
+agent = ReactAgent(
+    name="HistoricalBot",
+    provider="gpt-4o-mini",
+    current_date="2024-01-01",  # Custom date
+    current_datetime="2024-01-01 09:00:00"  # Custom datetime
+)
+```
+
+### Logging and Debugging
+
+Enable verbose or debug mode to track execution:
+
+```python
+# Verbose mode - track tool calls and iterations
+agent = ReactAgent(
+    name="Assistant",
+    provider="gpt-4o-mini",
+    verbose=True  # Shows execution flow
+)
+
+# Debug mode - detailed troubleshooting
+agent = ReactAgent(
+    name="Assistant",
+    provider="gpt-4o-mini",
+    debug=True  # Shows everything + timestamps
+)
+
+# Logs will show:
+# ▶ Starting agent execution
+# 🔄 Iteration 1/10
+# 🔧 Tool call: web_search(query='latest news')
+# ✅ Tool result: 1859 characters
+# ✓ Execution completed in 2.34s
 ```
 
 ## Examples

@@ -26,12 +26,12 @@ def main():
     # Add web search tool
     agent.add_tool(web_search)
 
-    # Ask a question
-    print("Question: What are the latest developments in AI agents?\n")
+    # Ask a question about current events
+    print("Question: What are the latest news about AI and technology today?\n")
 
     try:
         answer = agent.run(
-            "What are the latest developments in AI agents? Provide a summary."
+            "What are the latest news about AI and technology today? Search the web and provide a summary."
         )
 
         print("\n📝 Answer:")

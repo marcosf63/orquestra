@@ -103,6 +103,37 @@ python examples/persistence_postgresql.py
 - Production-ready database backend
 - Connection string or parameter-based configuration
 
+### 6. Verbose Mode (`verbose_example.py`)
+
+Shows verbose logging for tracking agent execution and tool calls.
+
+```bash
+uv run python examples/verbose_example.py
+```
+
+**Features:**
+- Verbose logging enabled (`verbose=True`)
+- Track execution flow
+- Monitor tool calls and results
+- Execution timing
+- **Requires:** ddgs dependency
+
+### 7. Debug Mode (`debug_example.py`)
+
+Demonstrates debug mode for detailed troubleshooting.
+
+```bash
+uv run python examples/debug_example.py
+```
+
+**Features:**
+- Debug logging enabled (`debug=True`)
+- Detailed message inspection
+- Provider request/response logging
+- Stack traces on errors
+- Timestamps for all operations
+- Custom math calculation tool
+
 ## Next Steps
 
 After exploring these examples, check out:

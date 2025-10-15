@@ -49,17 +49,20 @@ class ReactAgent(Agent):
             max_iterations: Maximum reasoning iterations
             **provider_kwargs: Additional provider configuration
         """
-        # Use custom system prompt for ReAct if not provided
-        if system_prompt is None:
-            system_prompt = self._create_react_prompt(name, description)
-
+        # First, call parent to initialize date attributes
         super().__init__(
             name=name,
             description=description,
             provider=provider,
-            system_prompt=system_prompt,
+            system_prompt="",  # Temporary, will override
             **provider_kwargs,
         )
+
+        # Now create ReAct prompt with date context
+        if system_prompt is None:
+            self.system_prompt = self._create_react_prompt(name, description)
+        else:
+            self.system_prompt = system_prompt
 
         self.max_iterations = max_iterations
 
@@ -77,6 +80,11 @@ class ReactAgent(Agent):
         if description:
             prompt += f", {description}"
         prompt += ".\n\n"
+
+        # Date context will be added by the base class _default_system_prompt
+        # But ReactAgent overrides system_prompt, so we need to add it here
+        prompt += f"Current date: {self.current_date}\n"
+        prompt += f"Current date and time: {self.current_datetime}\n\n"
 
         prompt += """You solve problems using the ReAct (Reasoning + Acting) pattern:
 
