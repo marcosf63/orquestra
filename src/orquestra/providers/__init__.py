@@ -7,17 +7,20 @@ from .anthropic_provider import AnthropicProvider
 from .gemini_provider import GeminiProvider
 from .ollama_provider import OllamaProvider
 from .openai_provider import OpenAIProvider
+from .openrouter_provider import OpenRouterProvider
 
 # Register all providers
 ProviderFactory.register("openai", OpenAIProvider)
 ProviderFactory.register("anthropic", AnthropicProvider)
 ProviderFactory.register("gemini", GeminiProvider)
 ProviderFactory.register("ollama", OllamaProvider)
+ProviderFactory.register("openrouter", OpenRouterProvider)
 
 __all__ = [
     "OpenAIProvider",
     "AnthropicProvider",
     "GeminiProvider",
     "OllamaProvider",
+    "OpenRouterProvider",
     "ProviderFactory",
 ]

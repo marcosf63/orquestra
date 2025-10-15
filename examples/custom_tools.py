@@ -18,6 +18,7 @@ def main():
         name="MathAssistant",
         description="An assistant that helps with math problems",
         provider="gpt-4o-mini",
+        verbose=True,
     )
 
     # Add custom tools using decorators

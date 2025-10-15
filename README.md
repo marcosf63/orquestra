@@ -9,7 +9,7 @@ A modern AI agent framework with multi-provider support, built-in tools, and a F
 
 ## Features
 
-- **Multi-Provider Support** - OpenAI, Anthropic Claude, Google Gemini, and Ollama
+- **Multi-Provider Support** - OpenAI, Anthropic Claude, Google Gemini, Ollama, and OpenRouter (100+ models)
 - **Built-in Tools** - Search, filesystem, computation, and more
 - **Memory Systems** - Chat memory with SQLite/PostgreSQL persistence
 - **Date-Aware Agents** - Automatic current date/time context for accurate responses
@@ -147,7 +147,50 @@ agent = ReactAgent(name="Gemini Agent", provider="gemini-pro")
 
 # Ollama (local)
 agent = ReactAgent(name="Local Agent", provider="llama3")
+
+# OpenRouter - Access 100+ models with one API key!
+# Get your key at: https://openrouter.ai/keys
+agent = ReactAgent(name="Claude via OpenRouter", provider="anthropic/claude-3.5-sonnet")
+agent = ReactAgent(name="GPT via OpenRouter", provider="openai/gpt-4")
+agent = ReactAgent(name="Llama via OpenRouter", provider="meta-llama/llama-3.1-70b")
 ```
+
+### OpenRouter - Unified Access to 100+ Models
+
+OpenRouter provides a single API to access models from OpenAI, Anthropic, Google, Meta, and many others:
+
+```python
+from orquestra import ReactAgent
+
+# Set your OpenRouter API key (get it at https://openrouter.ai/keys)
+# export OPENROUTER_API_KEY="sk-or-v1-..."
+
+# Use any model with provider/model format
+agent = ReactAgent(
+    name="Assistant",
+    provider="anthropic/claude-3.5-sonnet",  # Auto-detects OpenRouter
+)
+
+# Or specify explicitly
+from orquestra.providers import OpenRouterProvider
+
+provider = OpenRouterProvider(
+    model="openai/gpt-4",
+    api_key="sk-or-v1-..."  # Optional if OPENROUTER_API_KEY is set
+)
+
+agent = ReactAgent(name="Assistant", provider=provider)
+```
+
+**Available Models:** OpenAI GPT-4/GPT-3.5, Anthropic Claude, Google Gemini/PaLM, Meta Llama, Mistral, and 100+ more!
+
+**Benefits:**
+- Single API key for all providers
+- Pay-per-use pricing
+- No provider-specific setup needed
+- Same interface as native providers
+
+See `examples/openrouter_example.py` for more examples.
 
 ### Date-Aware Agents
 

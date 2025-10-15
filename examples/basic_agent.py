@@ -21,6 +21,7 @@ def main():
         name="WebResearcher",
         description="A helpful research assistant with web access",
         provider="gpt-4o-mini",  # or "claude-3-5-sonnet-20241022", "gemini-pro", etc.
+        verbose=True,
     )
 
     # Add web search tool

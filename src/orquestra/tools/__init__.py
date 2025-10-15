@@ -2,7 +2,7 @@
 
 from .computation import ComputationTool, calculate, convert_units, python_eval
 from .exceptions import MissingDependencyError
-from .filesystem import FileSystemTool, list_directory, read_file, write_file
+from .filesystem import FileSystemTool, file_exists, list_directory, read_file, write_file
 from .search import SearchTool, news_search, web_search
 
 __all__ = [
@@ -18,6 +18,7 @@ __all__ = [
     "read_file",
     "write_file",
     "list_directory",
+    "file_exists",
     "calculate",
     "python_eval",
     "convert_units",

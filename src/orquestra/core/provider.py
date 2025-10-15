@@ -176,6 +176,13 @@ class ProviderFactory:
         """
         model_lower = model.lower()
 
+        # OpenRouter models (format: provider/model-name)
+        # Detect by presence of "/" separator
+        if "/" in model:
+            # Check if it's a known OpenRouter format
+            # Examples: openai/gpt-4, anthropic/claude-3.5-sonnet, meta-llama/llama-3.1-70b
+            return "openrouter"
+
         # OpenAI models
         if any(
             x in model_lower for x in ["gpt-", "o1-", "o3-", "davinci", "curie", "babbage"]
