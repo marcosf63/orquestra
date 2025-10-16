@@ -1,0 +1,814 @@
+# Orquestra - AI Agent Framework
+
+> Orchestrate agents and tools in perfect harmony
+> Version: 0.5.0
+> Python 3.12+
+> License: MIT
+
+## Project Overview
+
+Orquestra is a modern AI agent framework with multi-provider support, built-in tools, streaming responses, vector database integration, and agent orchestration capabilities.
+
+### Key Features
+
+- Multi-Provider Support: OpenAI, Anthropic Claude, Google Gemini, Ollama, OpenRouter
+- Streaming Responses: Real-time streaming like ChatGPT
+- Vector Database Integration: ChromaDB and Qdrant for semantic search and RAG
+- Agent Orchestration: Chain and coordinate multiple agents with workflows
+- Built-in Tools: Search, filesystem, computation
+- Memory Systems: Chat memory with SQLite/PostgreSQL persistence
+- Date-Aware Agents: Automatic current date/time context
+- MCP Integration: Use external MCP server tools
+- FastAPI-Style API: Elegant decorators for tool registration
+
+## Installation
+
+```bash
+# Basic installation
+uv add orquestra
+
+# With providers
+uv add orquestra --optional openai
+uv add orquestra --optional anthropic
+uv add orquestra --optional gemini
+uv add orquestra --optional ollama
+
+# With vector database support
+uv add orquestra --optional vectordb  # ChromaDB
+uv add orquestra --optional qdrant    # Qdrant
+
+# Other optional dependencies
+uv add orquestra --optional search      # Web search
+uv add orquestra --optional postgresql  # PostgreSQL persistence
+```
+
+## Project Structure
+
+```
+orquestra/
+├── src/orquestra/
+│   ├── __init__.py              # Main exports
+│   ├── core/                    # Core components
+│   │   ├── agent.py            # Base Agent class
+│   │   ├── provider.py         # LLM provider abstraction
+│   │   └── tool.py             # Tool system
+│   ├── agents/                  # Agent implementations
+│   │   └── react.py            # ReAct agent
+│   ├── providers/               # LLM providers
+│   │   ├── openai_provider.py
+│   │   ├── anthropic_provider.py
+│   │   ├── gemini_provider.py
+│   │   ├── ollama_provider.py
+│   │   └── openrouter_provider.py
+│   ├── embeddings/              # Embedding providers (v0.5.0+)
+│   │   ├── base.py             # Abstract embedding provider
+│   │   └── openai_embeddings.py
+│   ├── vectorstores/            # Vector databases (v0.5.0+)
+│   │   ├── base.py             # Abstract vector store
+│   │   └── chroma.py           # ChromaDB integration
+│   ├── orchestration/           # Agent orchestration (v0.5.0+)
+│   │   └── workflow.py         # Workflow system
+│   ├── memory/                  # Memory systems
+│   │   ├── base.py             # Memory abstractions
+│   │   └── storage.py          # Storage backends
+│   ├── tools/                   # Built-in tools
+│   │   ├── search.py
+│   │   ├── filesystem.py
+│   │   └── computation.py
+│   └── mcp/                     # MCP integration
+│       ├── client.py
+│       └── types.py
+├── examples/                    # Usage examples
+├── tests/                       # Test suite
+├── pyproject.toml              # Project metadata
+└── README.md                   # Documentation
+```
+
+## Core API Reference
+
+### Agent Class
+
+**Location**: `src/orquestra/core/agent.py`
+
+```python
+class Agent:
+    """Base agent class with decorator-based tool registration."""
+
+    def __init__(
+        self,
+        name: str,
+        description: str | None = None,
+        provider: str | Provider | None = None,
+        system_prompt: str | None = None,
+        current_date: str | None = None,
+        current_datetime: str | None = None,
+        verbose: bool = False,
+        debug: bool = False,
+        **provider_kwargs: Any,
+    )
+
+    # Tool registration
+    def tool(self, name: str | None = None) -> Callable
+    def add_tool(self, func: Callable, name: str | None = None) -> Tool
+
+    # Execution methods
+    def run(self, prompt: str, max_iterations: int = 10, **kwargs) -> str
+    async def arun(self, prompt: str, max_iterations: int = 10, **kwargs) -> str
+
+    # Streaming methods (v0.5.0+)
+    def stream(self, prompt: str, max_iterations: int = 10, **kwargs) -> Generator[str, None, None]
+    async def astream(self, prompt: str, max_iterations: int = 10, **kwargs) -> AsyncGenerator[str, None]
+
+    # MCP integration
+    def add_mcp_server(self, name: str, command: list[str]) -> None
+
+    # Utility
+    def reset(self) -> None
+```
+
+### ReactAgent Class
+
+**Location**: `src/orquestra/agents/react.py`
+
+```python
+class ReactAgent(Agent):
+    """ReAct agent with reasoning and acting capabilities."""
+
+    def __init__(
+        self,
+        name: str,
+        description: str | None = None,
+        provider: str | None = None,
+        system_prompt: str | None = None,
+        max_iterations: int = 10,
+        **provider_kwargs: Any,
+    )
+```
+
+### Provider System
+
+**Location**: `src/orquestra/core/provider.py`
+
+```python
+class Message(BaseModel):
+    """Chat message."""
+    role: str  # "user", "assistant", "system"
+    content: str
+
+class ToolCall(BaseModel):
+    """Tool call from LLM."""
+    id: str
+    name: str
+    arguments: dict[str, Any]
+
+class ProviderResponse(BaseModel):
+    """Standardized LLM response."""
+    content: str | None
+    tool_calls: list[ToolCall]
+    finish_reason: str | None
+    usage: dict[str, int]
+    raw_response: Any
+
+class StreamChunk(BaseModel):  # v0.5.0+
+    """Streaming response chunk."""
+    content: str
+    finish_reason: str | None
+    tool_calls: list[ToolCall]
+    usage: dict[str, int]
+
+class Provider(ABC):
+    """Abstract LLM provider."""
+
+    @abstractmethod
+    def complete(self, messages: list[Message], tools: list[dict] | None, **kwargs) -> ProviderResponse
+
+    @abstractmethod
+    async def acomplete(self, messages: list[Message], tools: list[dict] | None, **kwargs) -> ProviderResponse
+
+    @abstractmethod
+    def supports_tools(self) -> bool
+
+    # v0.5.0+ streaming methods
+    def supports_streaming(self) -> bool
+    def stream(self, messages: list[Message], tools: list[dict] | None, **kwargs) -> Generator[StreamChunk, None, None]
+    async def astream(self, messages: list[Message], tools: list[dict] | None, **kwargs) -> AsyncGenerator[StreamChunk, None]
+```
+
+### Tool System
+
+**Location**: `src/orquestra/core/tool.py`
+
+```python
+class ToolParameter(BaseModel):
+    """Tool parameter definition."""
+    name: str
+    type: str
+    description: str
+    required: bool = True
+    default: Any = None
+
+class Tool:
+    """Function tool wrapper."""
+    def __init__(self, func: Callable, name: str | None = None)
+    def __call__(self, **kwargs) -> Any
+    def to_openai_format(self) -> dict
+    def to_anthropic_format(self) -> dict
+
+class ToolRegistry:
+    """Tool registry for agents."""
+    def register_function(self, func: Callable, name: str | None = None) -> Tool
+    def get(self, name: str) -> Tool | None
+    def get_all(self) -> list[Tool]
+```
+
+### Memory Systems
+
+**Location**: `src/orquestra/memory/base.py`
+
+```python
+class MemoryEntry(BaseModel):
+    """Memory entry."""
+    content: str
+    metadata: dict[str, Any] = {}
+    timestamp: float | None = None
+
+class ChatMemory(Memory):
+    """Chat history memory."""
+    def __init__(
+        self,
+        max_messages: int | None = None,
+        storage: StorageBackend | None = None,
+        session_id: str | None = None,
+    )
+
+    def add_message(self, role: str, content: str, metadata: dict | None = None)
+    def get_messages(self) -> list[Message]
+    def clear(self)
+    def load_from_storage(self, limit: int | None = None)
+    def list_sessions(self) -> list[str]
+
+class KnowledgeMemory(Memory):
+    """Vector-based knowledge memory."""
+    def __init__(self, vector_store: Any | None = None)  # v0.5.0+ vector store support
+
+    def add(self, entry: MemoryEntry | str)
+    def search(self, query: str, limit: int = 5) -> list[MemoryEntry]
+    def clear(self)
+```
+
+### Storage Backends
+
+**Location**: `src/orquestra/memory/storage.py`
+
+```python
+class SQLiteStorage(StorageBackend):
+    """SQLite storage backend."""
+    def __init__(self, database: str = "chat_memory.db")
+
+class PostgreSQLStorage(StorageBackend):
+    """PostgreSQL storage backend."""
+    def __init__(
+        self,
+        host: str = "localhost",
+        port: int = 5432,
+        database: str = "orquestra",
+        user: str = "postgres",
+        password: str = "",
+    )
+```
+
+## Embeddings API (v0.5.0+)
+
+**Location**: `src/orquestra/embeddings/`
+
+```python
+class EmbeddingProvider(ABC):
+    """Abstract embedding provider."""
+
+    @abstractmethod
+    def embed(self, text: str) -> list[float]
+
+    @abstractmethod
+    async def aembed(self, text: str) -> list[float]
+
+    @abstractmethod
+    def embed_batch(self, texts: list[str]) -> list[list[float]]
+
+    @abstractmethod
+    async def aembed_batch(self, texts: list[str]) -> list[list[float]]
+
+    def dimension(self) -> int
+
+class OpenAIEmbeddings(EmbeddingProvider):
+    """OpenAI embeddings provider."""
+    def __init__(
+        self,
+        model: str = "text-embedding-3-small",  # or "text-embedding-3-large"
+        api_key: str | None = None,
+        **kwargs
+    )
+```
+
+## Vector Stores API (v0.5.0+)
+
+**Location**: `src/orquestra/vectorstores/`
+
+```python
+class Document(BaseModel):
+    """Document with content and metadata."""
+    content: str
+    metadata: dict[str, Any] = {}
+    id: str | None = None
+
+class SearchResult(BaseModel):
+    """Search result from vector store."""
+    document: Document
+    score: float  # Similarity score (higher is more similar)
+
+class VectorStore(ABC):
+    """Abstract vector store."""
+
+    @abstractmethod
+    def add(self, documents: list[Document] | list[str], embeddings: list[list[float]] | None = None) -> list[str]
+
+    @abstractmethod
+    async def aadd(self, documents: list[Document] | list[str], embeddings: list[list[float]] | None = None) -> list[str]
+
+    @abstractmethod
+    def search(self, query: str, limit: int = 5, filter: dict[str, Any] | None = None) -> list[SearchResult]
+
+    @abstractmethod
+    async def asearch(self, query: str, limit: int = 5, filter: dict[str, Any] | None = None) -> list[SearchResult]
+
+    @abstractmethod
+    def delete(self, ids: list[str]) -> None
+
+    @abstractmethod
+    def clear(self) -> None
+
+    def count(self) -> int
+
+class ChromaVectorStore(VectorStore):
+    """ChromaDB vector store implementation."""
+    def __init__(
+        self,
+        collection_name: str = "orquestra",
+        embedding_provider: EmbeddingProvider | None = None,
+        persist_directory: str | None = None,
+        **kwargs
+    )
+```
+
+## Orchestration API (v0.5.0+)
+
+**Location**: `src/orquestra/orchestration/`
+
+```python
+class Workflow:
+    """Simple workflow for chaining agents and tasks."""
+    def __init__(self, name: str = "Workflow")
+
+    def add_step(self, name: str, func: Callable, pass_previous: bool = True) -> Workflow
+
+    def run(self, initial_input: str, **kwargs) -> str
+
+class SequentialWorkflow(Workflow):
+    """Sequential workflow that passes results between agents."""
+
+    def add_agent(self, agent: Agent) -> SequentialWorkflow
+
+# Note: ParallelWorkflow is placeholder for future implementation
+```
+
+## Built-in Tools
+
+**Location**: `src/orquestra/tools/`
+
+```python
+# Search tools
+def web_search(query: str) -> str
+def news_search(query: str) -> str
+
+# Filesystem tools
+def read_file(filepath: str) -> str
+def write_file(filepath: str, content: str) -> str
+def list_directory(path: str = ".") -> str
+
+# Computation tools
+def calculate(expression: str) -> str
+def python_eval(code: str) -> str
+def convert_units(value: float, from_unit: str, to_unit: str) -> str
+```
+
+## Usage Examples
+
+### 1. Basic Agent
+
+```python
+from orquestra import ReactAgent
+
+# Create agent
+agent = ReactAgent(
+    name="Assistant",
+    description="A helpful AI assistant",
+    provider="gpt-4o-mini"
+)
+
+# Add custom tool
+@agent.tool()
+def get_weather(city: str) -> str:
+    """Get weather for a city"""
+    return f"Weather in {city}: Sunny, 25°C"
+
+# Run agent
+answer = agent.run("What's the weather in Paris?")
+print(answer)
+```
+
+### 2. Streaming Responses (v0.5.0+)
+
+```python
+from orquestra import ReactAgent
+
+agent = ReactAgent(name="Assistant", provider="gpt-4o-mini")
+
+# Sync streaming
+for chunk in agent.stream("Tell me a short story"):
+    print(chunk, end="", flush=True)
+
+# Async streaming
+async for chunk in agent.astream("Explain quantum computing"):
+    print(chunk, end="", flush=True)
+```
+
+### 3. Vector Database & RAG (v0.5.0+)
+
+```python
+from orquestra import ReactAgent
+from orquestra.embeddings import OpenAIEmbeddings
+from orquestra.vectorstores import ChromaVectorStore, Document
+
+# Setup vector store
+embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+store = ChromaVectorStore(
+    collection_name="knowledge",
+    embedding_provider=embeddings,
+    persist_directory="./chroma_db"
+)
+
+# Add documents
+store.add([
+    Document(content="Orquestra is an AI agent framework", metadata={"source": "docs"}),
+    Document(content="It supports multiple LLM providers", metadata={"source": "docs"}),
+])
+
+# Create RAG agent
+agent = ReactAgent(name="RAG Agent", provider="gpt-4o-mini")
+
+@agent.tool()
+def search_knowledge(query: str) -> str:
+    """Search the knowledge base"""
+    results = store.search(query, limit=3)
+    return "\n".join([r.document.content for r in results])
+
+# Agent uses knowledge automatically
+answer = agent.run("What is Orquestra?")
+```
+
+### 4. Agent Orchestration (v0.5.0+)
+
+```python
+from orquestra import ReactAgent
+from orquestra.orchestration import SequentialWorkflow
+
+# Create specialized agents
+researcher = ReactAgent(name="Researcher", provider="gpt-4o-mini")
+writer = ReactAgent(name="Writer", provider="gpt-4o-mini")
+editor = ReactAgent(name="Editor", provider="gpt-4o-mini")
+
+# Create workflow
+workflow = SequentialWorkflow()
+workflow.add_agent(researcher)
+workflow.add_agent(writer)
+workflow.add_agent(editor)
+
+# Run - each agent processes previous output
+result = workflow.run("Write an article about AI safety")
+```
+
+### 5. Memory with Persistence
+
+```python
+from orquestra import ReactAgent, ChatMemory, SQLiteStorage
+
+# Setup persistent memory
+storage = SQLiteStorage("chat_history.db")
+memory = ChatMemory(storage=storage, session_id="user-123")
+
+# Create agent
+agent = ReactAgent(name="Assistant", provider="gpt-4o-mini")
+
+# Add conversation to memory
+memory.add_message("user", "Hello!")
+memory.add_message("assistant", "Hi! How can I help?")
+
+# Load previous conversations
+messages = memory.get_messages()
+```
+
+### 6. MCP Integration
+
+```python
+from orquestra import ReactAgent
+
+agent = ReactAgent(name="Assistant", provider="gpt-4o-mini")
+
+# Connect to MCP server - tools become available automatically
+agent.add_mcp_server(
+    name="filesystem",
+    command=["npx", "-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
+)
+
+# Agent can now use filesystem tools
+response = agent.run("List files and read README")
+```
+
+### 7. Multi-Provider Usage
+
+```python
+from orquestra import ReactAgent
+
+# OpenAI
+agent1 = ReactAgent(name="GPT Agent", provider="gpt-4o-mini")
+
+# Anthropic
+agent2 = ReactAgent(name="Claude Agent", provider="claude-3-5-sonnet-20241022")
+
+# Google Gemini
+agent3 = ReactAgent(name="Gemini Agent", provider="gemini-pro")
+
+# Ollama (local)
+agent4 = ReactAgent(name="Local Agent", provider="llama3")
+
+# OpenRouter (100+ models)
+agent5 = ReactAgent(name="Router Agent", provider="anthropic/claude-3.5-sonnet")
+```
+
+### 8. Verbose/Debug Logging
+
+```python
+from orquestra import ReactAgent
+
+# Verbose mode - track execution
+agent = ReactAgent(
+    name="Assistant",
+    provider="gpt-4o-mini",
+    verbose=True
+)
+
+# Debug mode - detailed troubleshooting
+agent = ReactAgent(
+    name="Assistant",
+    provider="gpt-4o-mini",
+    debug=True
+)
+
+# Logs show:
+# ▶ Starting agent execution
+# 🔄 Iteration 1/10
+# 🔧 Tool call: web_search(query='latest news')
+# ✅ Tool result: 1859 characters
+# ✓ Execution completed in 2.34s
+```
+
+## Environment Variables
+
+```bash
+# LLM Provider API Keys
+export OPENAI_API_KEY="sk-..."
+export ANTHROPIC_API_KEY="sk-ant-..."
+export GOOGLE_API_KEY="..."
+export OPENROUTER_API_KEY="sk-or-v1-..."
+
+# Or use .env file
+```
+
+## Common Patterns
+
+### Pattern 1: RAG with Streaming
+
+```python
+# Combine vector search with streaming responses
+agent = ReactAgent(name="RAG Assistant", provider="gpt-4o-mini")
+
+@agent.tool()
+def search_docs(query: str) -> str:
+    results = store.search(query, limit=3)
+    return "\n".join([r.document.content for r in results])
+
+for chunk in agent.stream("What is the main concept?"):
+    print(chunk, end="", flush=True)
+```
+
+### Pattern 2: Multi-Agent Workflow with RAG
+
+```python
+# Research agent with vector store
+researcher = ReactAgent(name="Researcher", provider="gpt-4o-mini")
+
+@researcher.tool()
+def search_knowledge(query: str) -> str:
+    return "\n".join([r.document.content for r in store.search(query, limit=5)])
+
+# Writer agent
+writer = ReactAgent(name="Writer", provider="gpt-4o-mini")
+
+# Workflow
+workflow = SequentialWorkflow()
+workflow.add_agent(researcher)
+workflow.add_agent(writer)
+
+result = workflow.run("Research and write about AI safety")
+```
+
+### Pattern 3: Async Agent Execution
+
+```python
+import asyncio
+
+async def main():
+    agent = ReactAgent(name="Assistant", provider="gpt-4o-mini")
+
+    # Async run
+    result = await agent.arun("Explain AI")
+
+    # Async streaming
+    async for chunk in agent.astream("Tell a story"):
+        print(chunk, end="", flush=True)
+
+asyncio.run(main())
+```
+
+## Error Handling
+
+```python
+from orquestra import ReactAgent
+from orquestra.tools.exceptions import ToolExecutionError
+
+agent = ReactAgent(name="Assistant", provider="gpt-4o-mini")
+
+@agent.tool()
+def risky_operation(input: str) -> str:
+    """Tool that might fail"""
+    try:
+        # Operation
+        return result
+    except Exception as e:
+        raise ToolExecutionError(f"Operation failed: {e}")
+
+# Agent handles errors gracefully
+try:
+    result = agent.run("Do risky operation")
+except Exception as e:
+    print(f"Agent execution failed: {e}")
+```
+
+## Testing
+
+```python
+import pytest
+from orquestra import ReactAgent
+
+def test_agent_basic():
+    agent = ReactAgent(name="Test", provider="gpt-4o-mini")
+
+    @agent.tool()
+    def mock_tool(x: int) -> int:
+        return x * 2
+
+    # Test would require API key or mocking
+    # See tests/ directory for full examples
+
+def test_memory():
+    from orquestra import ChatMemory, SQLiteStorage
+
+    storage = SQLiteStorage(":memory:")  # In-memory DB
+    memory = ChatMemory(storage=storage)
+
+    memory.add_message("user", "Hello")
+    messages = memory.get_messages()
+
+    assert len(messages) == 1
+    assert messages[0].content == "Hello"
+```
+
+## Version History
+
+### v0.5.0 (2025-10-16)
+- ✅ Streaming responses (OpenAI, Anthropic)
+- ✅ Vector database integration (ChromaDB)
+- ✅ Agent orchestration (Sequential workflows)
+- ✅ RAG capabilities
+- ✅ Enhanced KnowledgeMemory
+
+### v0.4.0
+- MCP (Model Context Protocol) integration
+- Dynamic tool signatures
+
+### v0.3.0
+- Date awareness
+- Verbose/debug logging
+
+### v0.2.0
+- Multi-provider support
+- Memory systems
+- Built-in tools
+
+### v0.1.0
+- Initial release
+- Core agent framework
+
+## Contributing
+
+When contributing to Orquestra:
+
+1. Follow PEP 8 style guide
+2. Add type hints to all functions
+3. Write docstrings (Google style)
+4. Add tests for new features
+5. Update this documentation
+
+## Key Design Principles
+
+1. **Provider Agnostic**: Easy to switch between LLM providers
+2. **Type Safe**: Extensive use of type hints and Pydantic models
+3. **Modular**: Core components are independent and reusable
+4. **Async First**: All I/O operations have async variants
+5. **Extensible**: Easy to add new providers, tools, and features
+6. **FastAPI-Style**: Familiar decorator-based API
+
+## Important Files for AI Coding Agents
+
+When working on Orquestra, focus on:
+
+1. **Core Logic**: `src/orquestra/core/` - Agent, Provider, Tool base classes
+2. **Providers**: `src/orquestra/providers/` - LLM integrations
+3. **Tools**: `src/orquestra/tools/` - Built-in tools
+4. **Memory**: `src/orquestra/memory/` - Memory systems
+5. **Embeddings**: `src/orquestra/embeddings/` - Embedding providers (v0.5.0+)
+6. **Vector Stores**: `src/orquestra/vectorstores/` - Vector databases (v0.5.0+)
+7. **Orchestration**: `src/orquestra/orchestration/` - Workflows (v0.5.0+)
+8. **Examples**: `examples/` - Usage examples
+9. **Tests**: `tests/` - Test suite
+
+## Dependencies
+
+Core:
+- pydantic>=2.0.0
+- httpx>=0.27.0
+- python-dotenv>=1.0.0
+- typing-extensions>=4.12.0
+- openai>=2.3.0
+
+Optional:
+- anthropic>=0.40.0
+- google-generativeai>=0.8.0
+- ollama>=0.3.0
+- ddgs>=1.0.0 (search)
+- psycopg[binary]>=3.0.0 (PostgreSQL)
+- chromadb>=0.4.0 (vector database)
+- qdrant-client>=1.7.0 (vector database)
+
+## Quick Reference
+
+```python
+# Import everything you need
+from orquestra import (
+    ReactAgent,                    # ReAct agent
+    ChatMemory,                    # Chat memory
+    KnowledgeMemory,              # Knowledge memory
+    SQLiteStorage,                # SQLite storage
+    PostgreSQLStorage,            # PostgreSQL storage
+    web_search,                   # Web search tool
+    calculate,                    # Calculator tool
+    read_file,                    # File reader
+)
+
+# v0.5.0+ imports
+from orquestra.embeddings import OpenAIEmbeddings
+from orquestra.vectorstores import ChromaVectorStore, Document
+from orquestra.orchestration import SequentialWorkflow, Workflow
+
+# Create, configure, execute
+agent = ReactAgent(name="Bot", provider="gpt-4o-mini", verbose=True)
+agent.add_tool(web_search)
+result = agent.run("Search for latest AI news")
+```
+
+---
+
+**End of Orquestra Documentation for AI Coding Agents**
+
+For more examples, see: `/examples/` directory
+For tests, see: `/tests/` directory
+For issues/questions: https://github.com/marcosf63/orquestra/issues
