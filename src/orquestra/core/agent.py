@@ -450,8 +450,13 @@ class Agent:
 
                 # Register each tool
                 for mcp_tool in tools:
-                    # Create wrapper function for this tool
-                    def create_wrapper(tool_name: str):
+                    # Extract parameters from input schema
+                    input_schema = mcp_tool.input_schema
+                    properties = input_schema.get("properties", {})
+                    required = input_schema.get("required", [])
+
+                    # Create wrapper function with proper signature
+                    def create_wrapper(tool_name: str, tool_schema: dict):
                         async def tool_wrapper(**kwargs: Any) -> str:
                             """MCP tool wrapper."""
                             try:
@@ -462,27 +467,71 @@ class Agent:
 
                         return tool_wrapper
 
-                    # Create sync wrapper
-                    def create_sync_wrapper(tool_name: str):
-                        async_func = create_wrapper(tool_name)
+                    # Create sync wrapper with dynamic parameters
+                    def create_sync_wrapper(tool_name: str, params: dict, req_params: list):
+                        async_func = create_wrapper(tool_name, params)
+
+                        # Build function signature dynamically
+                        import inspect
+
+                        # Create parameter list with defaults
+                        sig_params = []
+                        for param_name, param_def in params.items():
+                            if param_name in req_params:
+                                # Required parameter
+                                sig_params.append(
+                                    inspect.Parameter(
+                                        param_name,
+                                        inspect.Parameter.KEYWORD_ONLY,
+                                        annotation=str,  # Default to str
+                                    )
+                                )
+                            else:
+                                # Optional parameter with None default
+                                sig_params.append(
+                                    inspect.Parameter(
+                                        param_name,
+                                        inspect.Parameter.KEYWORD_ONLY,
+                                        default=None,
+                                        annotation=str,
+                                    )
+                                )
 
                         def sync_wrapper(**kwargs: Any) -> str:
                             """Sync wrapper for MCP tool."""
                             try:
                                 loop = asyncio.get_event_loop()
                                 if loop.is_running():
-                                    # If loop is running, create a new task
-                                    future = asyncio.ensure_future(async_func(**kwargs))
-                                    # This is a workaround - in practice, tools should be async
-                                    return "MCP tool called (async)"
+                                    # Create new event loop for nested async call
+                                    import threading
+                                    result_container = []
+
+                                    def run_async():
+                                        new_loop = asyncio.new_event_loop()
+                                        asyncio.set_event_loop(new_loop)
+                                        try:
+                                            result = new_loop.run_until_complete(async_func(**kwargs))
+                                            result_container.append(result)
+                                        finally:
+                                            new_loop.close()
+
+                                    thread = threading.Thread(target=run_async)
+                                    thread.start()
+                                    thread.join(timeout=30)
+
+                                    if result_container:
+                                        return result_container[0]
+                                    return "MCP tool timeout"
                                 else:
                                     return loop.run_until_complete(async_func(**kwargs))
                             except Exception as e:
                                 return f"Error: {str(e)}"
 
+                        # Set proper signature
+                        sync_wrapper.__signature__ = inspect.Signature(sig_params)  # type: ignore
                         return sync_wrapper
 
-                    wrapper = create_sync_wrapper(mcp_tool.name)
+                    wrapper = create_sync_wrapper(mcp_tool.name, properties, required)
                     wrapper.__name__ = mcp_tool.name
                     wrapper.__doc__ = mcp_tool.description or f"MCP tool: {mcp_tool.name}"
 
