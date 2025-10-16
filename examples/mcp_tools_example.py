@@ -14,7 +14,9 @@ Try with official MCP servers:
 """
 
 from orquestra import ReactAgent
+from dotenv import load_dotenv
 
+load_dotenv()
 def main():
     """Run the MCP tools example."""
     # Create an Orquestra agent

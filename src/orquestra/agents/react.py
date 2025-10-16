@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, AsyncGenerator, Generator
 
 from ..core.agent import Agent
 
@@ -141,3 +141,42 @@ Be concise but thorough in your reasoning."""
         """
         iterations = max_iterations or self.max_iterations
         return await super().arun(prompt, max_iterations=iterations, **generation_kwargs)
+
+    def stream(
+        self,
+        prompt: str,
+        max_iterations: int | None = None,
+        **generation_kwargs: Any,
+    ) -> Generator[str, None, None]:
+        """Stream the ReAct agent's response.
+
+        Args:
+            prompt: User prompt/question
+            max_iterations: Override default max iterations
+            **generation_kwargs: Additional generation parameters
+
+        Yields:
+            String chunks of the response
+        """
+        iterations = max_iterations or self.max_iterations
+        yield from super().stream(prompt, max_iterations=iterations, **generation_kwargs)
+
+    async def astream(
+        self,
+        prompt: str,
+        max_iterations: int | None = None,
+        **generation_kwargs: Any,
+    ) -> AsyncGenerator[str, None]:
+        """Async stream the ReAct agent's response.
+
+        Args:
+            prompt: User prompt/question
+            max_iterations: Override default max iterations
+            **generation_kwargs: Additional generation parameters
+
+        Yields:
+            String chunks of the response
+        """
+        iterations = max_iterations or self.max_iterations
+        async for chunk in super().astream(prompt, max_iterations=iterations, **generation_kwargs):
+            yield chunk

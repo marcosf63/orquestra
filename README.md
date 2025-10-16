@@ -10,6 +10,9 @@ A modern AI agent framework with multi-provider support, built-in tools, and a F
 ## Features
 
 - **Multi-Provider Support** - OpenAI, Anthropic Claude, Google Gemini, Ollama, and OpenRouter (100+ models)
+- **Streaming Responses** - Real-time streaming of agent responses like ChatGPT
+- **Vector Database Integration** - ChromaDB and Qdrant support for semantic search and RAG
+- **Agent Orchestration** - Chain and coordinate multiple agents with workflows
 - **Built-in Tools** - Search, filesystem, computation, and more
 - **Memory Systems** - Chat memory with SQLite/PostgreSQL persistence
 - **Date-Aware Agents** - Automatic current date/time context for accurate responses
@@ -34,6 +37,12 @@ uv add orquestra --optional search
 
 # With PostgreSQL persistence
 uv add orquestra --optional postgresql
+
+# With vector database support (ChromaDB)
+uv add orquestra --optional vectordb
+
+# With Qdrant vector database
+uv add orquestra --optional qdrant
 ```
 
 ## Quick Start
@@ -242,12 +251,95 @@ agent = ReactAgent(
 # ✓ Execution completed in 2.34s
 ```
 
+### Streaming Responses
+
+Stream responses in real-time for better user experience:
+
+```python
+from orquestra import ReactAgent
+
+agent = ReactAgent(
+    name="StreamingAssistant",
+    provider="gpt-4o-mini"
+)
+
+# Stream response chunks
+for chunk in agent.stream("Tell me a short story"):
+    print(chunk, end="", flush=True)
+
+# Async streaming
+async for chunk in agent.astream("Explain quantum computing"):
+    print(chunk, end="", flush=True)
+```
+
+### Vector Databases and RAG
+
+Build knowledge bases with semantic search:
+
+```python
+from orquestra import ReactAgent
+from orquestra.embeddings import OpenAIEmbeddings
+from orquestra.vectorstores import ChromaVectorStore, Document
+
+# Create embeddings provider
+embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
+
+# Create vector store
+store = ChromaVectorStore(
+    collection_name="knowledge",
+    embedding_provider=embeddings
+)
+
+# Add documents
+store.add([
+    Document(content="Orquestra is an AI agent framework"),
+    Document(content="It supports multiple LLM providers"),
+])
+
+# Create agent with RAG
+agent = ReactAgent(name="RAG Agent", provider="gpt-4o-mini")
+
+@agent.tool()
+def search_knowledge(query: str) -> str:
+    """Search the knowledge base"""
+    results = store.search(query, limit=3)
+    return "\n".join([r.document.content for r in results])
+
+# Agent will use knowledge base automatically
+answer = agent.run("What is Orquestra?")
+```
+
+### Agent Orchestration
+
+Chain multiple agents together:
+
+```python
+from orquestra import ReactAgent
+from orquestra.orchestration import SequentialWorkflow
+
+# Create specialized agents
+researcher = ReactAgent(name="Researcher", provider="gpt-4o-mini")
+writer = ReactAgent(name="Writer", provider="gpt-4o-mini")
+editor = ReactAgent(name="Editor", provider="gpt-4o-mini")
+
+# Create workflow
+workflow = SequentialWorkflow()
+workflow.add_agent(researcher)
+workflow.add_agent(writer)
+workflow.add_agent(editor)
+
+# Run workflow - each agent processes the previous agent's output
+result = workflow.run("Write an article about AI safety")
+```
+
 ## Examples
 
 See the [examples/](examples/) directory for complete examples:
 
 - `basic_agent.py` - Simple agent with web search
 - `custom_tools.py` - Creating custom tools with decorators
+- `streaming_example.py` - Real-time streaming responses
+- `vector_rag_example.py` - RAG with vector databases
 - `persistence_sqlite.py` - Chat memory with SQLite
 - `persistence_postgresql.py` - Chat memory with PostgreSQL
 
@@ -323,9 +415,13 @@ See `examples/mcp_tools_example.py` for complete example.
 - [x] Memory systems with persistence (SQLite/PostgreSQL)
 - [x] Built-in tools (search, filesystem, computation)
 - [x] MCP (Model Context Protocol) integration - use external MCP server tools
-- [ ] Vector database integration for knowledge
-- [ ] Streaming responses
-- [ ] Agent orchestration and chaining
+- [x] Vector database integration for knowledge (ChromaDB, Qdrant)
+- [x] Streaming responses (OpenAI, Anthropic)
+- [x] Agent orchestration and chaining (Sequential workflows)
+- [ ] Parallel agent execution
+- [ ] Advanced orchestration patterns (conditional, hierarchical)
+- [ ] More vector database integrations (Pinecone, Weaviate)
+- [ ] Streaming for all providers (Gemini, Ollama, OpenRouter)
 
 ## License
 

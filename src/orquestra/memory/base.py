@@ -200,13 +200,28 @@ class ChatMemory(Memory):
 class KnowledgeMemory(Memory):
     """Vector-based knowledge memory for semantic search.
 
-    This is a simple in-memory implementation. For production use,
-    consider integrating with vector databases like ChromaDB, Pinecone, etc.
+    Can use either simple keyword matching (default) or a vector store
+    for semantic search capabilities.
+
+    Example with vector store:
+        ```python
+        from orquestra.embeddings import OpenAIEmbeddings
+        from orquestra.vectorstores import ChromaVectorStore
+
+        embeddings = OpenAIEmbeddings()
+        store = ChromaVectorStore(embedding_provider=embeddings)
+        memory = KnowledgeMemory(vector_store=store)
+        ```
     """
 
-    def __init__(self) -> None:
-        """Initialize knowledge memory."""
+    def __init__(self, vector_store: Any | None = None) -> None:
+        """Initialize knowledge memory.
+
+        Args:
+            vector_store: Optional vector store for semantic search
+        """
         self._entries: list[MemoryEntry] = []
+        self.vector_store = vector_store
 
     def add(self, entry: MemoryEntry | str) -> None:
         """Add knowledge entry.
@@ -219,11 +234,16 @@ class KnowledgeMemory(Memory):
 
         self._entries.append(entry)
 
-    def search(self, query: str, limit: int = 5) -> list[MemoryEntry]:
-        """Search knowledge base (simple keyword matching).
+        # Also add to vector store if available
+        if self.vector_store:
+            from ..vectorstores.base import Document
+            doc = Document(content=entry.content, metadata=entry.metadata)
+            self.vector_store.add([doc])
 
-        Note: This is a basic implementation using keyword matching.
-        For production, integrate with vector embeddings and similarity search.
+    def search(self, query: str, limit: int = 5) -> list[MemoryEntry]:
+        """Search knowledge base.
+
+        Uses vector store if available, otherwise falls back to keyword matching.
 
         Args:
             query: Search query
@@ -232,6 +252,18 @@ class KnowledgeMemory(Memory):
         Returns:
             List of relevant knowledge entries
         """
+        # Use vector store if available
+        if self.vector_store:
+            results = self.vector_store.search(query, limit=limit)
+            return [
+                MemoryEntry(
+                    content=r.document.content,
+                    metadata=r.document.metadata,
+                )
+                for r in results
+            ]
+
+        # Fallback to keyword matching
         query_lower = query.lower()
         scored_entries: list[tuple[int, MemoryEntry]] = []
 
@@ -250,6 +282,8 @@ class KnowledgeMemory(Memory):
     def clear(self) -> None:
         """Clear all knowledge entries."""
         self._entries.clear()
+        if self.vector_store:
+            self.vector_store.clear()
 
     def __len__(self) -> int:
         """Get number of knowledge entries."""

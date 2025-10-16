@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import json
 import os
-from typing import Any
+from typing import Any, AsyncGenerator, Generator
 
-from ..core.provider import Message, Provider, ProviderResponse, ToolCall
+from ..core.provider import Message, Provider, ProviderResponse, StreamChunk, ToolCall
 
 try:
     from openai import AsyncOpenAI, OpenAI
@@ -98,8 +99,6 @@ class OpenAIProvider(Provider):
         tool_calls: list[ToolCall] = []
         if choice.message.tool_calls:
             for tc in choice.message.tool_calls:
-                import json
-
                 tool_calls.append(
                     ToolCall(
                         id=tc.id,
@@ -160,8 +159,6 @@ class OpenAIProvider(Provider):
         tool_calls: list[ToolCall] = []
         if choice.message.tool_calls:
             for tc in choice.message.tool_calls:
-                import json
-
                 tool_calls.append(
                     ToolCall(
                         id=tc.id,
@@ -189,3 +186,181 @@ class OpenAIProvider(Provider):
             True
         """
         return True
+
+    def supports_streaming(self) -> bool:
+        """OpenAI supports streaming responses.
+
+        Returns:
+            True
+        """
+        return True
+
+    def stream(
+        self,
+        messages: list[Message],
+        tools: list[dict[str, Any]] | None = None,
+        **kwargs: Any,
+    ) -> Generator[StreamChunk, None, None]:
+        """Stream completion using OpenAI.
+
+        Args:
+            messages: Conversation messages
+            tools: Optional tools in OpenAI format
+            **kwargs: Additional generation parameters
+
+        Yields:
+            StreamChunk objects with incremental content
+        """
+        # Convert messages to OpenAI format
+        openai_messages = [{"role": msg.role, "content": msg.content} for msg in messages]
+
+        # Prepare completion kwargs
+        completion_kwargs: dict[str, Any] = {
+            "model": self.model,
+            "messages": openai_messages,
+            "stream": True,
+            **kwargs,
+        }
+
+        if tools:
+            completion_kwargs["tools"] = tools
+            completion_kwargs.setdefault("parallel_tool_calls", True)
+
+        # Call OpenAI streaming API
+        stream = self.client.chat.completions.create(**completion_kwargs)
+
+        # Accumulate tool call data
+        tool_call_accumulator: dict[int, dict[str, Any]] = {}
+
+        for chunk in stream:
+            if not chunk.choices:
+                continue
+
+            choice = chunk.choices[0]
+            delta = choice.delta
+
+            # Handle content chunks
+            if delta.content:
+                yield StreamChunk(
+                    content=delta.content,
+                    finish_reason=choice.finish_reason,
+                )
+
+            # Handle tool calls in streaming
+            if delta.tool_calls:
+                for tc_delta in delta.tool_calls:
+                    idx = tc_delta.index
+                    if idx not in tool_call_accumulator:
+                        tool_call_accumulator[idx] = {
+                            "id": tc_delta.id or "",
+                            "name": "",
+                            "arguments": "",
+                        }
+
+                    if tc_delta.id:
+                        tool_call_accumulator[idx]["id"] = tc_delta.id
+                    if tc_delta.function and tc_delta.function.name:
+                        tool_call_accumulator[idx]["name"] = tc_delta.function.name
+                    if tc_delta.function and tc_delta.function.arguments:
+                        tool_call_accumulator[idx]["arguments"] += tc_delta.function.arguments
+
+            # On finish, yield tool calls if any
+            if choice.finish_reason and tool_call_accumulator:
+                tool_calls = [
+                    ToolCall(
+                        id=data["id"],
+                        name=data["name"],
+                        arguments=json.loads(data["arguments"]) if data["arguments"] else {},
+                    )
+                    for data in tool_call_accumulator.values()
+                ]
+                yield StreamChunk(
+                    content="",
+                    finish_reason=choice.finish_reason,
+                    tool_calls=tool_calls,
+                )
+
+    async def astream(
+        self,
+        messages: list[Message],
+        tools: list[dict[str, Any]] | None = None,
+        **kwargs: Any,
+    ) -> AsyncGenerator[StreamChunk, None]:
+        """Async stream completion using OpenAI.
+
+        Args:
+            messages: Conversation messages
+            tools: Optional tools in OpenAI format
+            **kwargs: Additional generation parameters
+
+        Yields:
+            StreamChunk objects with incremental content
+        """
+        # Convert messages to OpenAI format
+        openai_messages = [{"role": msg.role, "content": msg.content} for msg in messages]
+
+        # Prepare completion kwargs
+        completion_kwargs: dict[str, Any] = {
+            "model": self.model,
+            "messages": openai_messages,
+            "stream": True,
+            **kwargs,
+        }
+
+        if tools:
+            completion_kwargs["tools"] = tools
+            completion_kwargs.setdefault("parallel_tool_calls", True)
+
+        # Call OpenAI streaming API
+        stream = await self.async_client.chat.completions.create(**completion_kwargs)
+
+        # Accumulate tool call data
+        tool_call_accumulator: dict[int, dict[str, Any]] = {}
+
+        async for chunk in stream:
+            if not chunk.choices:
+                continue
+
+            choice = chunk.choices[0]
+            delta = choice.delta
+
+            # Handle content chunks
+            if delta.content:
+                yield StreamChunk(
+                    content=delta.content,
+                    finish_reason=choice.finish_reason,
+                )
+
+            # Handle tool calls in streaming
+            if delta.tool_calls:
+                for tc_delta in delta.tool_calls:
+                    idx = tc_delta.index
+                    if idx not in tool_call_accumulator:
+                        tool_call_accumulator[idx] = {
+                            "id": tc_delta.id or "",
+                            "name": "",
+                            "arguments": "",
+                        }
+
+                    if tc_delta.id:
+                        tool_call_accumulator[idx]["id"] = tc_delta.id
+                    if tc_delta.function and tc_delta.function.name:
+                        tool_call_accumulator[idx]["name"] = tc_delta.function.name
+                    if tc_delta.function and tc_delta.function.arguments:
+                        tool_call_accumulator[idx]["arguments"] += tc_delta.function.arguments
+
+            # On finish, yield tool calls if any
+            if choice.finish_reason and tool_call_accumulator:
+                tool_calls = [
+                    ToolCall(
+                        id=data["id"],
+                        name=data["name"],
+                        arguments=json.loads(data["arguments"]) if data["arguments"] else {},
+                    )
+                    for data in tool_call_accumulator.values()
+                ]
+                yield StreamChunk(
+                    content="",
+                    finish_reason=choice.finish_reason,
+                    tool_calls=tool_calls,
+                )

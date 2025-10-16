@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 import os
-from typing import Any
+from typing import Any, AsyncGenerator, Generator
 
-from ..core.provider import Message, Provider, ProviderResponse, ToolCall
+from ..core.provider import Message, Provider, ProviderResponse, StreamChunk, ToolCall
 
 try:
     from anthropic import Anthropic, AsyncAnthropic
@@ -206,3 +206,183 @@ class AnthropicProvider(Provider):
             True
         """
         return True
+
+    def supports_streaming(self) -> bool:
+        """Anthropic supports streaming responses.
+
+        Returns:
+            True
+        """
+        return True
+
+    def stream(
+        self,
+        messages: list[Message],
+        tools: list[dict[str, Any]] | None = None,
+        **kwargs: Any,
+    ) -> Generator[StreamChunk, None, None]:
+        """Stream completion using Anthropic.
+
+        Args:
+            messages: Conversation messages
+            tools: Optional tools in Anthropic format
+            **kwargs: Additional generation parameters
+
+        Yields:
+            StreamChunk objects with incremental content
+        """
+        # Separate system message from conversation
+        system_message = None
+        conversation_messages = []
+
+        for msg in messages:
+            if msg.role == "system":
+                system_message = msg.content
+            else:
+                conversation_messages.append({"role": msg.role, "content": msg.content})
+
+        # Prepare completion kwargs
+        completion_kwargs: dict[str, Any] = {
+            "model": self.model,
+            "messages": conversation_messages,
+            "max_tokens": kwargs.pop("max_tokens", 4096),
+            "stream": True,
+            **kwargs,
+        }
+
+        if system_message:
+            completion_kwargs["system"] = system_message
+
+        if tools:
+            completion_kwargs["tools"] = tools
+
+        # Call Anthropic streaming API
+        with self.client.messages.stream(**completion_kwargs) as stream:
+            tool_call_accumulator: dict[str, dict[str, Any]] = {}
+
+            for event in stream:
+                # Handle text deltas
+                if hasattr(event, 'type'):
+                    if event.type == "content_block_delta":
+                        if hasattr(event.delta, 'text'):
+                            yield StreamChunk(content=event.delta.text)
+
+                        # Handle tool use deltas
+                        elif hasattr(event.delta, 'partial_json'):
+                            # Anthropic sends partial JSON for tool inputs
+                            pass
+
+                    elif event.type == "content_block_start":
+                        if hasattr(event.content_block, 'type'):
+                            if event.content_block.type == "tool_use":
+                                tool_id = event.content_block.id
+                                tool_call_accumulator[tool_id] = {
+                                    "id": tool_id,
+                                    "name": event.content_block.name,
+                                    "input": "",
+                                }
+
+                    elif event.type == "message_delta":
+                        # Message finished
+                        if tool_call_accumulator:
+                            tool_calls = []
+                            for data in tool_call_accumulator.values():
+                                tool_calls.append(
+                                    ToolCall(
+                                        id=data["id"],
+                                        name=data["name"],
+                                        arguments=data.get("input", {}),
+                                    )
+                                )
+                            if tool_calls:
+                                yield StreamChunk(
+                                    content="",
+                                    tool_calls=tool_calls,
+                                    finish_reason=event.delta.stop_reason if hasattr(event.delta, 'stop_reason') else None,
+                                )
+
+    async def astream(
+        self,
+        messages: list[Message],
+        tools: list[dict[str, Any]] | None = None,
+        **kwargs: Any,
+    ) -> AsyncGenerator[StreamChunk, None]:
+        """Async stream completion using Anthropic.
+
+        Args:
+            messages: Conversation messages
+            tools: Optional tools in Anthropic format
+            **kwargs: Additional generation parameters
+
+        Yields:
+            StreamChunk objects with incremental content
+        """
+        # Separate system message from conversation
+        system_message = None
+        conversation_messages = []
+
+        for msg in messages:
+            if msg.role == "system":
+                system_message = msg.content
+            else:
+                conversation_messages.append({"role": msg.role, "content": msg.content})
+
+        # Prepare completion kwargs
+        completion_kwargs: dict[str, Any] = {
+            "model": self.model,
+            "messages": conversation_messages,
+            "max_tokens": kwargs.pop("max_tokens", 4096),
+            "stream": True,
+            **kwargs,
+        }
+
+        if system_message:
+            completion_kwargs["system"] = system_message
+
+        if tools:
+            completion_kwargs["tools"] = tools
+
+        # Call Anthropic streaming API
+        async with self.async_client.messages.stream(**completion_kwargs) as stream:
+            tool_call_accumulator: dict[str, dict[str, Any]] = {}
+
+            async for event in stream:
+                # Handle text deltas
+                if hasattr(event, 'type'):
+                    if event.type == "content_block_delta":
+                        if hasattr(event.delta, 'text'):
+                            yield StreamChunk(content=event.delta.text)
+
+                        # Handle tool use deltas
+                        elif hasattr(event.delta, 'partial_json'):
+                            # Anthropic sends partial JSON for tool inputs
+                            pass
+
+                    elif event.type == "content_block_start":
+                        if hasattr(event.content_block, 'type'):
+                            if event.content_block.type == "tool_use":
+                                tool_id = event.content_block.id
+                                tool_call_accumulator[tool_id] = {
+                                    "id": tool_id,
+                                    "name": event.content_block.name,
+                                    "input": "",
+                                }
+
+                    elif event.type == "message_delta":
+                        # Message finished
+                        if tool_call_accumulator:
+                            tool_calls = []
+                            for data in tool_call_accumulator.values():
+                                tool_calls.append(
+                                    ToolCall(
+                                        id=data["id"],
+                                        name=data["name"],
+                                        arguments=data.get("input", {}),
+                                    )
+                                )
+                            if tool_calls:
+                                yield StreamChunk(
+                                    content="",
+                                    tool_calls=tool_calls,
+                                    finish_reason=event.delta.stop_reason if hasattr(event.delta, 'stop_reason') else None,
+                                )

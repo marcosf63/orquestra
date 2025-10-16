@@ -4,9 +4,9 @@ from __future__ import annotations
 
 import logging
 from datetime import datetime
-from typing import Any, Callable, TypeVar
+from typing import Any, AsyncGenerator, Callable, Generator, TypeVar
 
-from .provider import Message, Provider, ProviderFactory
+from .provider import Message, Provider, ProviderFactory, StreamChunk
 from .tool import Tool, ToolRegistry
 
 F = TypeVar("F", bound=Callable[..., Any])
@@ -390,6 +390,246 @@ class Agent:
 
         self.logger.warning(f"⚠️ Max iterations ({max_iterations}) reached without final answer")
         return "Max iterations reached without final answer"
+
+    def stream(
+        self,
+        prompt: str,
+        max_iterations: int = 10,
+        **generation_kwargs: Any,
+    ) -> Generator[str, None, None]:
+        """Stream the agent's response with a prompt.
+
+        Args:
+            prompt: User prompt/question
+            max_iterations: Maximum number of tool calling iterations
+            **generation_kwargs: Additional generation parameters
+
+        Yields:
+            String chunks of the response
+
+        Note:
+            Streaming with tool calling may not stream tool execution.
+            For best streaming experience, use without tools or with simple queries.
+        """
+        import time
+        start_time = time.time()
+
+        self.logger.info(f"▶ Starting streaming agent execution")
+        self.logger.debug(f"📝 User prompt: {prompt}")
+
+        # Check if provider supports streaming
+        if not self.provider.supports_streaming():
+            self.logger.warning("⚠️ Provider doesn't support streaming, falling back to regular run()")
+            result = self.run(prompt, max_iterations, **generation_kwargs)
+            yield result
+            return
+
+        # Add user message
+        self.messages.append(Message(role="user", content=prompt))
+
+        # Add system message if this is the first interaction
+        if len(self.messages) == 1:
+            self.messages.insert(0, Message(role="system", content=self.system_prompt))
+            self.logger.debug(f"📋 System prompt: {self.system_prompt[:200]}...")
+
+        # Prepare tools for provider
+        tools_list = None
+        if self.provider.supports_tools() and len(self.tools) > 0:
+            tools_list = self._format_tools_for_provider()
+            tool_names = [t.name for t in self.tools.get_all()]
+            self.logger.info(f"🔧 Available tools: {', '.join(tool_names)}")
+
+        # Iterative execution loop with streaming
+        iteration = 0
+        full_response = ""
+
+        while iteration < max_iterations:
+            self.logger.info(f"🔄 Iteration {iteration + 1}/{max_iterations}")
+
+            # Stream response from provider
+            tool_calls_list = []
+            chunk_content = ""
+
+            for chunk in self.provider.stream(
+                messages=self.messages,
+                tools=tools_list,
+                **generation_kwargs,
+            ):
+                if chunk.content:
+                    chunk_content += chunk.content
+                    full_response += chunk.content
+                    yield chunk.content
+
+                # Collect tool calls if present
+                if chunk.tool_calls:
+                    tool_calls_list.extend(chunk.tool_calls)
+
+            # If no tool calls, we're done
+            if not tool_calls_list:
+                if chunk_content:
+                    self.logger.info(f"✓ Streaming completed in {time.time() - start_time:.2f}s")
+                    self.messages.append(
+                        Message(role="assistant", content=full_response)
+                    )
+                    return
+                else:
+                    self.logger.warning("⚠️ No response generated")
+                    return
+
+            # Handle tool calls (non-streaming)
+            self.logger.debug(f"🧠 Processing {len(tool_calls_list)} tool calls")
+            self.messages.append(
+                Message(
+                    role="assistant",
+                    content=chunk_content or "Using tools...",
+                )
+            )
+
+            for tool_call in tool_calls_list:
+                tool = self.tools.get(tool_call.name)
+                if tool is None:
+                    self.logger.error(f"❌ Tool not found: {tool_call.name}")
+                    tool_result = f"Error: Tool '{tool_call.name}' not found"
+                else:
+                    args_str = ", ".join(f"{k}={repr(v)[:50]}" for k, v in tool_call.arguments.items())
+                    self.logger.info(f"🔧 Tool call: {tool_call.name}({args_str})")
+
+                    try:
+                        tool_result = tool(**tool_call.arguments)
+                        self.logger.info(f"✅ Tool result: {len(str(tool_result))} characters")
+                    except Exception as e:
+                        self.logger.error(f"⚠️ Tool error: {type(e).__name__}: {str(e)}")
+                        tool_result = f"Error executing tool: {str(e)}"
+
+                # Add tool result to messages
+                self.messages.append(
+                    Message(
+                        role="user",
+                        content=f"Tool '{tool_call.name}' result: {tool_result}",
+                    )
+                )
+
+            iteration += 1
+
+        self.logger.warning(f"⚠️ Max iterations ({max_iterations}) reached")
+
+    async def astream(
+        self,
+        prompt: str,
+        max_iterations: int = 10,
+        **generation_kwargs: Any,
+    ) -> AsyncGenerator[str, None]:
+        """Async stream the agent's response with a prompt.
+
+        Args:
+            prompt: User prompt/question
+            max_iterations: Maximum number of tool calling iterations
+            **generation_kwargs: Additional generation parameters
+
+        Yields:
+            String chunks of the response
+        """
+        import time
+        start_time = time.time()
+
+        self.logger.info(f"▶ Starting async streaming agent execution")
+        self.logger.debug(f"📝 User prompt: {prompt}")
+
+        # Check if provider supports streaming
+        if not self.provider.supports_streaming():
+            self.logger.warning("⚠️ Provider doesn't support streaming, falling back to regular arun()")
+            result = await self.arun(prompt, max_iterations, **generation_kwargs)
+            yield result
+            return
+
+        # Add user message
+        self.messages.append(Message(role="user", content=prompt))
+
+        # Add system message if this is the first interaction
+        if len(self.messages) == 1:
+            self.messages.insert(0, Message(role="system", content=self.system_prompt))
+            self.logger.debug(f"📋 System prompt: {self.system_prompt[:200]}...")
+
+        # Prepare tools for provider
+        tools_list = None
+        if self.provider.supports_tools() and len(self.tools) > 0:
+            tools_list = self._format_tools_for_provider()
+            tool_names = [t.name for t in self.tools.get_all()]
+            self.logger.info(f"🔧 Available tools: {', '.join(tool_names)}")
+
+        # Iterative execution loop with streaming
+        iteration = 0
+        full_response = ""
+
+        while iteration < max_iterations:
+            self.logger.info(f"🔄 Iteration {iteration + 1}/{max_iterations}")
+
+            # Stream response from provider
+            tool_calls_list = []
+            chunk_content = ""
+
+            async for chunk in self.provider.astream(
+                messages=self.messages,
+                tools=tools_list,
+                **generation_kwargs,
+            ):
+                if chunk.content:
+                    chunk_content += chunk.content
+                    full_response += chunk.content
+                    yield chunk.content
+
+                # Collect tool calls if present
+                if chunk.tool_calls:
+                    tool_calls_list.extend(chunk.tool_calls)
+
+            # If no tool calls, we're done
+            if not tool_calls_list:
+                if chunk_content:
+                    self.logger.info(f"✓ Async streaming completed in {time.time() - start_time:.2f}s")
+                    self.messages.append(
+                        Message(role="assistant", content=full_response)
+                    )
+                    return
+                else:
+                    self.logger.warning("⚠️ No response generated")
+                    return
+
+            # Handle tool calls (non-streaming)
+            self.logger.debug(f"🧠 Processing {len(tool_calls_list)} tool calls")
+            self.messages.append(
+                Message(
+                    role="assistant",
+                    content=chunk_content or "Using tools...",
+                )
+            )
+
+            for tool_call in tool_calls_list:
+                tool = self.tools.get(tool_call.name)
+                if tool is None:
+                    self.logger.error(f"❌ Tool not found: {tool_call.name}")
+                    tool_result = f"Error: Tool '{tool_call.name}' not found"
+                else:
+                    args_str = ", ".join(f"{k}={repr(v)[:50]}" for k, v in tool_call.arguments.items())
+                    self.logger.info(f"🔧 Tool call: {tool_call.name}({args_str})")
+
+                    try:
+                        tool_result = tool(**tool_call.arguments)
+                        self.logger.info(f"✅ Tool result: {len(str(tool_result))} characters")
+                    except Exception as e:
+                        self.logger.error(f"⚠️ Tool error: {type(e).__name__}: {str(e)}")
+                        tool_result = f"Error executing tool: {str(e)}"
+
+                # Add tool result to messages
+                self.messages.append(
+                    Message(
+                        role="user",
+                        content=f"Tool '{tool_call.name}' result: {tool_result}",
+                    )
+                )
+
+            iteration += 1
+
+        self.logger.warning(f"⚠️ Max iterations ({max_iterations}) reached")
 
     def reset(self) -> None:
         """Reset the agent's conversation history."""

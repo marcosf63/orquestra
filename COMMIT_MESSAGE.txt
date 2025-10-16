@@ -1,0 +1,56 @@
+Release v0.5.0 - Streaming, Vector DB e Orchestration
+
+Esta release adiciona três features principais ao Orquestra:
+
+## 1. Streaming Responses ✨
+- Respostas em tempo real como ChatGPT
+- Métodos stream() e astream() em todos os agentes
+- Implementado para OpenAI e Anthropic
+- Suporte completo a tool calling durante streaming
+- Exemplo: examples/streaming_example.py
+
+## 2. Vector Database Integration 🔍
+- Novo módulo de embeddings (OpenAI text-embedding-3)
+- Vector stores: ChromaDB integration completa
+- RAG (Retrieval-Augmented Generation) pronto para produção
+- KnowledgeMemory com busca semântica opcional
+- Exemplo: examples/vector_rag_example.py
+
+## 3. Agent Orchestration 🤝
+- Sistema de workflows para encadear agentes
+- SequentialWorkflow implementado
+- API fluente para composição de agentes
+- Base para workflows paralelos e condicionais
+
+## Arquivos Criados (11):
+- src/orquestra/embeddings/ (3 arquivos)
+- src/orquestra/vectorstores/ (3 arquivos)
+- src/orquestra/orchestration/ (2 arquivos)
+- examples/ (2 novos exemplos)
+- IMPLEMENTACAO_v0.5.0.md
+
+## Arquivos Modificados (9):
+- Providers: OpenAI e Anthropic com streaming
+- Core: Agent e Provider com métodos de streaming
+- Memory: KnowledgeMemory com vector store
+- Docs: README e CHANGELOG atualizados
+- Version: 0.4.0 → 0.5.0
+
+## Dependências Opcionais:
+- vectordb: chromadb>=0.4.0
+- qdrant: qdrant-client>=1.7.0
+
+## Backward Compatibility:
+✅ 100% compatível com código existente
+✅ Todas as features são opcionais
+✅ Fallbacks automáticos
+
+## Roadmap:
+- [x] Streaming responses
+- [x] Vector database integration
+- [x] Agent orchestration and chaining
+
+## Próximos passos:
+- [ ] Parallel agent execution
+- [ ] More vector databases (Pinecone, Weaviate)
+- [ ] Streaming for all providers

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, AsyncGenerator, Generator
 
 from pydantic import BaseModel
 
@@ -31,6 +31,18 @@ class ProviderResponse(BaseModel):
     finish_reason: str | None = None
     usage: dict[str, int] = {}
     raw_response: Any = None
+
+    class Config:
+        arbitrary_types_allowed = True
+
+
+class StreamChunk(BaseModel):
+    """Represents a chunk in a streaming response."""
+
+    content: str
+    finish_reason: str | None = None
+    tool_calls: list[ToolCall] = []
+    usage: dict[str, int] = {}
 
     class Config:
         arbitrary_types_allowed = True
@@ -105,6 +117,63 @@ class Provider(ABC):
             True if provider supports tools, False otherwise
         """
         pass
+
+    def supports_streaming(self) -> bool:
+        """Check if this provider supports streaming responses.
+
+        Returns:
+            True if provider supports streaming, False otherwise
+        """
+        return False
+
+    def stream(
+        self,
+        messages: list[Message],
+        tools: list[dict[str, Any]] | None = None,
+        **kwargs: Any,
+    ) -> Generator[StreamChunk, None, None]:
+        """Stream completion from the LLM.
+
+        Args:
+            messages: List of conversation messages
+            tools: Optional list of available tools in provider format
+            **kwargs: Additional generation parameters
+
+        Yields:
+            StreamChunk objects containing incremental response data
+
+        Raises:
+            NotImplementedError: If provider doesn't support streaming
+        """
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not support streaming. "
+            "Check supports_streaming() before calling this method."
+        )
+
+    async def astream(
+        self,
+        messages: list[Message],
+        tools: list[dict[str, Any]] | None = None,
+        **kwargs: Any,
+    ) -> AsyncGenerator[StreamChunk, None]:
+        """Async stream completion from the LLM.
+
+        Args:
+            messages: List of conversation messages
+            tools: Optional list of available tools in provider format
+            **kwargs: Additional generation parameters
+
+        Yields:
+            StreamChunk objects containing incremental response data
+
+        Raises:
+            NotImplementedError: If provider doesn't support streaming
+        """
+        raise NotImplementedError(
+            f"{self.__class__.__name__} does not support async streaming. "
+            "Check supports_streaming() before calling this method."
+        )
+        yield  # Make it a generator (unreachable, but needed for type checking)
 
     def format_tools(self, tools: list[dict[str, Any]]) -> list[dict[str, Any]]:
         """Format tools for this specific provider.

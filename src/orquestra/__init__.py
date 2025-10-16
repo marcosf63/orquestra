@@ -4,7 +4,7 @@ A modern AI agent framework with multi-provider support, built-in tools,
 and FastAPI-style declarative API.
 """
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 # Core components
 from .core import (
@@ -13,6 +13,7 @@ from .core import (
     Provider,
     ProviderFactory,
     ProviderResponse,
+    StreamChunk,
     Tool,
     ToolCall,
     ToolParameter,
@@ -63,6 +64,7 @@ __all__ = [
     "ProviderFactory",
     "Message",
     "ProviderResponse",
+    "StreamChunk",
     "ToolCall",
     # Agents
     "ReactAgent",

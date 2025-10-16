@@ -5,6 +5,52 @@ Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 O formato é baseado em [Keep a Changelog](https://keepachangelog.com/pt-BR/1.0.0/),
 e este projeto adere ao [Semantic Versioning](https://semver.org/lang/pt-BR/).
 
+## [0.5.0] - 2025-10-16
+
+### Adicionado - Respostas em Streaming
+- **Suporte a Streaming**: Agentes agora podem fazer streaming de respostas em tempo real
+  - Métodos `stream()` e `astream()` adicionados a `Agent` e `ReactAgent`
+  - Streaming implementado nos providers OpenAI e Anthropic
+  - Nova classe `StreamChunk` para manipular dados de streaming
+  - Suporte completo para streaming com chamadas de ferramentas
+  - Exemplo: `examples/streaming_example.py`
+
+### Adicionado - Integração com Bancos de Dados Vetoriais
+- **Módulo de Embeddings**: Novos provedores de embeddings para representações vetoriais
+  - Classe abstrata base `EmbeddingProvider`
+  - `OpenAIEmbeddings` para modelos de embeddings da OpenAI
+  - Suporte para `text-embedding-3-small` e `text-embedding-3-large`
+
+- **Vector Stores**: Capacidades de busca semântica para bases de conhecimento
+  - Classe abstrata base `VectorStore` com tipos `Document` e `SearchResult`
+  - Integração `ChromaVectorStore` para uso fácil de banco de dados vetorial
+  - Suporte async completo com `aadd()`, `asearch()`, `adelete()`, `aclear()`
+
+- **KnowledgeMemory Aprimorada**:
+  - Backend opcional de vector store para busca semântica
+  - Compatível com busca baseada em palavras-chave
+  - Fallback automático para busca por palavras-chave se não houver vector store
+
+- **Exemplo de RAG**: Exemplo completo de Retrieval-Augmented Generation
+  - Exemplo: `examples/vector_rag_example.py`
+  - Mostra como construir bases de conhecimento e responder perguntas com contexto
+
+### Adicionado - Orquestração de Agentes
+- **Sistema de Workflow**: Encadear múltiplos agentes
+  - Classe `Workflow` para definir workflows de agentes
+  - `SequentialWorkflow` para passar resultados entre agentes
+  - Placeholder para `ParallelWorkflow` (em desenvolvimento)
+
+### Modificado
+- Classe `Agent` atualizada para suportar métodos de streaming
+- Interface de provider aprimorada com método `supports_streaming()`
+- Melhor tratamento de erros em cenários de streaming
+
+### Dependências
+- Dependências opcionais adicionadas:
+  - `vectordb`: Suporte a ChromaDB (`chromadb>=0.4.0`)
+  - `qdrant`: Suporte a Qdrant (`qdrant-client>=1.7.0`)
+
 ## [0.4.0] - 2025-10-15
 
 ### Preparação
