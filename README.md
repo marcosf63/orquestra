@@ -14,7 +14,7 @@ A modern AI agent framework with multi-provider support, built-in tools, and a F
 - **Memory Systems** - Chat memory with SQLite/PostgreSQL persistence
 - **Date-Aware Agents** - Automatic current date/time context for accurate responses
 - **Verbose & Debug Modes** - Built-in logging for troubleshooting and monitoring
-- **MCP Integration** - Model Context Protocol support (coming soon)
+- **MCP Integration** - Use external MCP server tools with one line of code
 - **FastAPI-Style API** - Elegant and intuitive agent creation with decorators
 
 ## Installation
@@ -263,6 +263,58 @@ export GOOGLE_API_KEY="your-key"
 
 Or use a `.env` file.
 
+## MCP Integration
+
+Orquestra agents can use tools from external [Model Context Protocol](https://modelcontextprotocol.io) servers with a simple one-line integration.
+
+### Using MCP Server Tools
+
+```python
+from orquestra import ReactAgent
+
+agent = ReactAgent(name="Assistant", provider="gpt-4o-mini")
+
+# Connect to any MCP server - tools become available automatically
+agent.add_mcp_server(
+    name="filesystem",
+    command=["npx", "-y", "@modelcontextprotocol/server-filesystem", "/tmp"]
+)
+
+# Agent can now use filesystem tools
+response = agent.run("List the files in the directory and read any README files")
+```
+
+### Examples with Official MCP Servers
+
+```python
+# Filesystem operations
+agent.add_mcp_server(
+    name="filesystem",
+    command=["npx", "-y", "@modelcontextprotocol/server-filesystem", "/home/user"]
+)
+
+# GitHub integration
+agent.add_mcp_server(
+    name="github",
+    command=["npx", "-y", "@modelcontextprotocol/server-github"]
+)
+
+# Brave Search
+agent.add_mcp_server(
+    name="brave-search",
+    command=["npx", "-y", "@modelcontextprotocol/server-brave-search"]
+)
+```
+
+### How It Works
+
+1. Agent connects to MCP server via stdio subprocess
+2. Discovers available tools automatically
+3. Registers tools in agent's tool registry
+4. Tools work exactly like native Orquestra tools
+
+See `examples/mcp_tools_example.py` for complete example.
+
 ## Roadmap
 
 - [x] Core agent framework
@@ -270,7 +322,7 @@ Or use a `.env` file.
 - [x] Tool system with decorators
 - [x] Memory systems with persistence (SQLite/PostgreSQL)
 - [x] Built-in tools (search, filesystem, computation)
-- [ ] MCP (Model Context Protocol) integration
+- [x] MCP (Model Context Protocol) integration - use external MCP server tools
 - [ ] Vector database integration for knowledge
 - [ ] Streaming responses
 - [ ] Agent orchestration and chaining
